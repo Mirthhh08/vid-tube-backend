@@ -8,7 +8,7 @@ const asyncHandler = (requestHandler) => {
 
 // const asyncHandler = (fn) => async (req , res , next) => {
 //     try {
-        
+
 //     } catch (error) {
 //         res.status(req.status || 500).json({
 //             error : error
@@ -16,3 +16,5 @@ const asyncHandler = (requestHandler) => {
 //         })
 //     }
 //  }
+
+export default asyncHandler
