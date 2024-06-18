@@ -3,6 +3,28 @@ import { ApiError } from '../utils/ApiError.js'
 import { User } from '../models/user.model.js'
 import { uploadOnCloudinary } from '../utils/cloudinary.js'
 import { ApiResponse } from '../utils/ApiResponse.js'
+import jwt from "jsonwebtoken"
+
+const generateAccessAndRefreshTokens = async (userId) => {
+    try {
+        const user = await User.findById(userId)
+
+
+        const accessToken = user.generateAccessToken()
+
+
+        const refreshToken = user.generateRefreshToken()
+
+        user.refreshToken = refreshToken;
+        await user.save({ vailidateBeforeSave: false })
+
+        return { accessToken, refreshToken }
+
+    } catch (err) {
+        throw new ApiError(400, "Something went wrong while generating refresh and access token")
+    }
+}
+
 const registerUser = asyncHandler(async (req, res) => {
     // get details from user 
     // validation - empty
@@ -14,21 +36,22 @@ const registerUser = asyncHandler(async (req, res) => {
     // check for user creation
     // return res
 
-    console.log(req.body);
+
     const { fullName, username, password, email } = req.body
-    console.log("email", email);
+
 
     if ([fullName, username, password, email].some((field) => field?.trim() === "")) {
         throw new ApiError(400, "All fields are required")
     }
 
-    const existedUser = User.findOne({
+    const existedUser = await User.findOne({
         $or: [{ username }, { email }]
     })
 
     if (existedUser) {
         throw new ApiError(409, "User with email or username already exist")
     }
+
 
     const avatarLocalPath = req.files?.avatar[0]?.path;
     const coverLocalPath = req.files?.coverImage[0]?.path;
@@ -41,6 +64,7 @@ const registerUser = asyncHandler(async (req, res) => {
     const avatar = await uploadOnCloudinary(avatarLocalPath);
     const coverImage = await uploadOnCloudinary(coverLocalPath);
 
+
     if (!avatar) {
         throw new ApiError(404, "Avatar file is required")
     }
@@ -49,9 +73,10 @@ const registerUser = asyncHandler(async (req, res) => {
         {
             fullName,
             avatar: avatar,
-            coverImage: coverImage?.url || "",
+            coverImage: coverImage || "",
             email,
             username: username.toLowerCase(),
+            password,
 
         }
     )
@@ -64,11 +89,137 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new ApiError(500, "Something went wrong while registering user")
     }
 
-
+    console.log(createdUser)
     return res.status(201).json(
-        new ApiResponse(201, createdUser , "User registered successfully")
+        new ApiResponse(201, createdUser, "User registered successfully")
     )
 })
 
 
-export { registerUser }
+const loginUser = asyncHandler(async (req, res) => {
+    // take email passowrd from user
+    // validate the information from db
+    // if user exist create a token and store it in local storage also genrate refresh token
+    // if user doesnt exist thorw an errow no user found
+
+    const { email, username, password } = req.body
+
+    if (!username && !email) {
+        throw new ApiError(400, "username or email is required")
+    }
+
+    const existingUser = await User.findOne({
+        $or: [{ username }, { email }]
+    })
+
+    if (!existingUser) {
+        throw new ApiError(400, "user does not exist")
+    }
+
+
+
+    const isPasswordValid = await existingUser.isPasswordCorrect(password)
+
+    if (!isPasswordValid) {
+        throw new ApiError(400, "Incoorect Password")
+    }
+
+    const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(existingUser._id)
+
+
+    const loggedInUser = await User.findOne(existingUser._id).select("-password -refreshToken")
+
+    const options = {
+        httpOnly: true,
+        secure: true,
+    }
+
+    return res.status(200).cookie("accessToken", accessToken, options).cookie("refreshToken", refreshToken, options).json(
+        new ApiResponse(
+            200,
+            {
+                user: loggedInUser,
+                accessToken: accessToken,
+                refreshToken: refreshToken
+            },
+            "User logged In Successfully"
+        )
+    )
+})
+
+
+const logoutUser = asyncHandler(async (req, res) => {
+    await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set: {
+                refreshToken: undefined
+            }
+        },
+        {
+            new: true
+        }
+    )
+
+    const options = {
+        httpOnly: true,
+        secure: true,
+    }
+
+    return res.status(200).clearCookie("accessToken", options).clearCookie("refreshToken", options).json(
+        new ApiResponse(
+            200,
+            {},
+            "User logged Out Successfully"
+        )
+    )
+
+})
+
+const refreshAccessToken = asyncHandler(async (req, res) => {
+
+    const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken
+
+    if (!incomingRefreshToken) {
+        throw new ApiError(401, "Unauthorized request")
+    }
+
+    try {
+        const decodedToken = jwt.verify(
+            incomingRefreshToken,
+            process.env.REFRESH_TOKEN_SECRET
+        )
+
+
+        const user = await User.findById(decodedToken?._id)
+
+        if (!incomingRefreshToken) {
+            throw new ApiError(401, "Invalid Refresh Token")
+        }
+
+        if (incomingRefreshToken !== user?.refreshToken) {
+            throw new ApiError(401, "Refresh Token is expired or Invalid")
+        }
+
+
+        const options = {
+            httpOnly: true,
+            secure: true
+        }
+
+        const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id)
+
+        return res.status(200).cookie("accessToken", accessToken, options).cookie("refreshToken", refreshToken, options).json(
+            new ApiResponse(200, { accessToken, refreshToken }, "Access Token Refreshed")
+        )
+    } catch (error) {
+        throw new ApiError(401, error?.message || "Invalid Access Token")
+    }
+})
+
+export {
+    registerUser,
+    loginUser,
+    logoutUser,
+    refreshAccessToken
+} 
