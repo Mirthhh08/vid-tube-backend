@@ -1,4 +1,4 @@
-import {v2 as cloudinary} from 'cloudinary'
+import { v2 as cloudinary } from 'cloudinary'
 import fs from 'fs'
 
 
@@ -13,16 +13,30 @@ const uploadOnCloudinary = async (localFilePath) => {
         if (!localFilePath) return null;
 
         const response = await cloudinary.uploader.upload(localFilePath, {
-            resource_type: "auto"
+            resource_type: "auto",
+            media_metadata: true
+
         })
 
-        
+
         fs.unlinkSync(localFilePath)
-        return response.url;
+        return response;
     } catch (error) {
         fs.unlinkSync(localFilePath)
         return null;
     }
 }
 
-export  {uploadOnCloudinary}
+async function deleteFile(id) {
+    try {
+        if (!id) return null;
+        const result = await cloudinary.uploader.destroy(id);
+        console.log('Deleted image:', result);
+        return result;
+    } catch (error) {
+        console.error('Error deleting image:', error);
+        throw error;
+    }
+}
+
+export { uploadOnCloudinary, deleteFile }
