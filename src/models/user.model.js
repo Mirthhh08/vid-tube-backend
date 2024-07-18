@@ -32,15 +32,28 @@ const userSchema = new Schema({
 
     },
     avatar: {
-        type: String, //cloudinary url
-        required: true,
+        url: {
+            type: String, //cloudinary url
+            required: true
+        },
+        public_id: {
+            type: String, //cloudinary url
+            required: true
+        }
 
     },
     coverImage: {
-        type: String,//cloudinary url
+        url: {
+            type: String, //cloudinary url
+
+        },
+        public_id: {
+            type: String, //cloudinary url
+
+        }
     },
-    refreshToken:{
-        type:String
+    refreshToken: {
+        type: String
     },
     watchHistory: [
         {

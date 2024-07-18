@@ -76,30 +76,121 @@ const getVideoById = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Video id is required")
     }
 
-    const video = await Video.aggregate(
-        [
-            {
-                $match: {
-                    _id: videoId
-                }
-            },
-            {
-                $lookup: {
-                    from: "users",
-                    localField: "owner",
-                    foreginFiled: "_id",
-                    as: "channel"
+    const video = await Video.aggregate([
+
+        {
+            $match: {
+                _id: new mongoose.Types.ObjectId(videoId)
+            }
+        },
+        {
+            $lookup: {
+                from: "likes",
+                localField: "_id",
+                foreignField: "video",
+                as: "likes",
+            }
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "owner",
+                foreignField: "_id",
+                as: "owner",
+                pipeline: [
+                    {
+                        $lookup: {
+                            from: "subscriptions",
+                            localField: "_id",
+                            foreignField: "channel",
+                            as: "subscribers"
+                        }
+                    },
+                    {
+                        $addFields: {
+                            subscriberCnt: { $size: "$subscribers" },
+                            isSubscribed: {
+                                $cond: {
+                                    if: { $in: [req.user?._id, "$subscribers"] },
+                                    then: true,
+                                    else: false
+                                }
+                            }
+                        }
+                    },
+                    {
+                        $project: {
+                            username: 1,
+                            subscriberCnt: 1,
+                            isSubscribed: 1,
+                            avatar: 1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $lookup: {
+                from: "comments",
+                localField: "_id",
+                foreignField: "video",
+                as: "comments"
+            }
+        },
+        {
+            $addFields: {
+                likesCount: { $size: "$likes" },
+                isLiked: {
+                    $cond: {
+                        if: { $in: [req.user?._id, "$likes"] },
+                        then: true,
+                        else: false
+                    }
                 }
             }
-        ])
+        },
+        {
+            $project: {
+                videoFile: 1,
+                title: 1,
+                description: 1,
+                views: 1,
+                createdAt: 1,
+                duration: 1,
+                comments: 1,
+                owner: 1,
+                likesCount: 1,
+                isLiked: 1
+            }
+        }
+    ]);
+
+
 
     if (!video) {
         throw new ApiError(400, "Video does not exist")
     }
 
+    await Video.findByIdAndUpdate(
+        videoId,
+        {
+            $inc: {
+                views: 1
+            }
+        }
+    )
 
+    await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $addToSet: {
+                watchHistory: videoId
+            }
+        }
+    )
+    console.log(video)
     res.status(200).json(
-        new ApiResponse(200, video, "Video fetched successfully")
+        new ApiResponse(200, video[0], "Video fetched successfully")
     )
 
 })
@@ -187,7 +278,7 @@ const deleteVideo = asyncHandler(async (req, res) => {
         throw new ApiError(401, "You cannot delete the video because you are not the owner.")
     }
 
-    const deltedVideo = await Video.findByIdAndDelete(video?._id)
+    const deletedVideo = await Video.findByIdAndDelete(video?._id)
 
     await deleteFile(video?.videoFile?.public_id)
     await deleteFile(video?.thumbnail?.public_id)
@@ -232,7 +323,7 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
 
 export {
     getAllVideos,
-    uploadVideo, 
+    uploadVideo,
     getVideoById,
     updateVideo,
     deleteVideo,
