@@ -8,8 +8,86 @@ import { ApiResponse } from '../utils/ApiResponse.js'
 
 
 const getAllVideos = asyncHandler(async (req, res) => {
-    const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query
+    const { page = 1, limit = 10, query, sortBy = "createdAt", sortType = "desc" } = req.query
     //TODO: get all videos based on query, sort, pagination
+
+    if (query.trim() === "") {
+        throw new ApiError(401, "Query is required")
+    }
+
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
+
+    const skip = (pageNumber - 1) * limitNumber;
+    console.log(skip, pageNumber, limit)
+    const videos = await Video.aggregate([
+        {
+            $match: {
+                $or: [
+                    { title: { $regex: query, $options: 'i' } },
+                    { description: { $regex: query, $options: 'i' } }
+                ],
+                isPublished: true,
+
+            }
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "owner",
+                foreignField: "_id",
+                as: "owner",
+                pipeline: [
+                    {
+                        $project: {
+                            username: 1,
+                            avatar: 1,
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $lookup: {
+                from: "likes",
+                localField: "_id",
+                foreignField: "video",
+                as: "likes"
+            }
+        },
+        {
+            $addFields: {
+                likesCnt: { $size: "$likes" }
+            }
+        },
+        {
+            $project: {
+                _id: 1,
+                likesCnt: 1,
+                owner: 1,
+                videoFile: 1,
+                thumbnail: 1,
+                createdAt: 1,
+                title: 1,
+                description: 1,
+                duration: 1,
+                views: 1,
+                isPublished: 1,
+            }
+        },
+        { $sort: { [sortBy]: sortType === 'asc' ? 1 : -1 } },
+        { $skip: skip },
+        { $limit: limitNumber }
+    ])
+
+
+    if (videos.length === 0) {
+        throw new ApiError(400, "No videos found")
+    }
+
+    res.status(200).json(
+        new ApiResponse(200, videos, "Videos fetched successfully")
+    )
 
 })
 
