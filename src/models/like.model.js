@@ -2,7 +2,7 @@ import mongoose, { Schema } from "mongoose";
 
 const likeSchema = new Schema(
     {
-        content: {
+        comment: {
             type: Schema.Types.ObjectId,
             ref: "Comment"
         },
