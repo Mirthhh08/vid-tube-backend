@@ -232,7 +232,7 @@ const updatePlaylist = asyncHandler(async (req, res) => {
     }
 
     if (playlist.owner.toString() !== req.user?._id.toString()) {
-        throw new ApiError(401, "you cannot delete the playlist as you are not owner")
+        throw new ApiError(401, "you cannot update the playlist as you are not owner")
     }
 
     const updatedPlaylist = await Playlist.findByIdAndUpdate(
