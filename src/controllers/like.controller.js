@@ -111,7 +111,7 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
     }
     else {
         const addLike = await Like.create({
-            comment: new mongoose.Types.ObjectId(tweetId),
+            tweet: new mongoose.Types.ObjectId(tweetId),
             likedBy: req.user?._id
         });
 
