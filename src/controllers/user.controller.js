@@ -1,7 +1,7 @@
 import asyncHandler from '../utils/asyncHandler.js'
 import { ApiError } from '../utils/ApiError.js'
 import { User } from '../models/user.model.js'
-import { uploadOnCloudinary } from '../utils/cloudinary.js'
+import { deleteFile, uploadOnCloudinary } from '../utils/cloudinary.js'
 import { ApiResponse } from '../utils/ApiResponse.js'
 import jwt from "jsonwebtoken"
 import mongoose from 'mongoose'
@@ -17,7 +17,7 @@ const generateAccessAndRefreshTokens = async (userId) => {
         const refreshToken = user.generateRefreshToken()
 
         user.refreshToken = refreshToken;
-        
+
         await user.save({ vailidateBeforeSave: false })
 
         return { accessToken, refreshToken }
@@ -155,7 +155,6 @@ const loginUser = asyncHandler(async (req, res) => {
     )
 })
 
-
 const logoutUser = asyncHandler(async (req, res) => {
     await User.findByIdAndUpdate(
         req.user._id,
@@ -235,7 +234,7 @@ const changePassword = asyncHandler(async (req, res) => {
 
     const isPasswordCorrect = await user.isPasswordCorrect(oldPassword)
 
-    if (!isPassowrd) {
+    if (!isPasswordCorrect) {
         throw new ApiError(401, "Incorrect Password")
     }
 
@@ -297,12 +296,24 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     }
 
 
-    const user = await User.findByIdAndUpdate(
-        req.user?._id,
-        { avatar },
-        { new: true }
-    ).select("-password  -refreshToken")
+    const user = await User.findById(req.user?._id)
 
+    if (!user) {
+        throw new ApiError(501, "No user found")
+    }
+
+    const oldAvatarId = user.avatar.public_id
+
+    user.avatar = {
+        url: avatar.url,
+        public_id: avatar.public_id
+    }
+
+    await user.save({ validateBeforeSave: false })
+
+    if (!(await deleteFile(oldAvatarId))) {
+        console.log("Could not delete the file from cloudinary")
+    }
 
     res.status(200).json(
         new ApiResponse(200, user, "Avatar Updated Successfully")
@@ -324,15 +335,27 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     }
 
 
-    const user = await User.findByIdAndUpdate(
-        req.user?._id,
-        { coverImage },
-        { new: true }
-    ).select("-password  -refreshToken")
+    const user = await User.findById(req.user?._id)
 
+    if (!user) {
+        throw new ApiError(501, "No user found")
+    }
+
+    const oldCoverImageId = user.coverImage?.public_id
+
+    user.coverImage = {
+        url: coverImage.url,
+        public_id: coverImage.public_id
+    }
+
+    await user.save({ validateBeforeSave: false })
+
+    if (!(await deleteFile(oldCoverImageId))) {
+        console.log("Could not delete the file from cloudinary")
+    }
 
     res.status(200).json(
-        new ApiResponse(200, user, "CoverImage Updated Successfully")
+        new ApiResponse(200, user, "Cover Image Updated Successfully")
     )
 })
 
@@ -391,14 +414,12 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
                 subscibersCount: 1,
                 subscribedTo: 1,
                 isSubscribed: 1,
-                avatar: 1,
-                coverImage: 1,
+                "avatar.url": 1,
+                "coverImage.url": 1,
 
             }
         }
     ])
-
-    console.log(channel);
 
 
     if (!channel?.length) {
@@ -459,7 +480,6 @@ const getWatchHistory = asyncHandler(async (req, res) => {
         new ApiResponse(200, user[0].watchHistory, "Watch history fetched successfully")
     )
 })
-
 
 export {
     registerUser,
