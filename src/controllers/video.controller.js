@@ -8,88 +8,88 @@ import { ApiResponse } from '../utils/ApiResponse.js'
 
 
 const getAllVideos = asyncHandler(async (req, res) => {
-    const { page = 1, limit = 10, query, sortBy = "createdAt", sortType = "desc" } = req.query
-    //TODO: get all videos based on query, sort, pagination
+    const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query;
+    console.log(userId);
+    const pipeline = [];
 
-    if (query.trim() === "") {
-        throw new ApiError(401, "Query is required")
+    // for using Full Text based search u need to create a search index in mongoDB atlas
+    // you can include field mapppings in search index eg.title, description, as well
+    // Field mappings specify which fields within your documents should be indexed for text search.
+    // this helps in seraching only in title, desc providing faster search results
+    // here the name of search index is 'search-videos'
+    if (query) {
+        pipeline.push({
+            $search: {
+                index: "search-videos",
+                text: {
+                    query: query,
+                    path: ["title", "description"] //search only on title, desc
+                }
+            }
+        });
     }
 
-    const pageNumber = parseInt(page, 10);
-    const limitNumber = parseInt(limit, 10);
+    if (userId) {
+        if (!isValidObjectId(userId)) {
+            throw new ApiError(400, "Invalid userId");
+        }
 
-    const skip = (pageNumber - 1) * limitNumber;
-    console.log(skip, pageNumber, limit)
-    const videos = await Video.aggregate([
-        {
+        pipeline.push({
             $match: {
-                $or: [
-                    { title: { $regex: query, $options: 'i' } },
-                    { description: { $regex: query, $options: 'i' } }
-                ],
-                isPublished: true,
-
+                owner: new mongoose.Types.ObjectId(userId)
             }
-        },
+        });
+    }
+
+    
+    pipeline.push({ $match: { isPublished: true } });
+
+   
+    if (sortBy && sortType) {
+        pipeline.push({
+            $sort: {
+                [sortBy]: sortType === "asc" ? 1 : -1
+            }
+        });
+    } else {
+        pipeline.push({ $sort: { createdAt: -1 } });
+    }
+
+    pipeline.push(
         {
             $lookup: {
                 from: "users",
                 localField: "owner",
                 foreignField: "_id",
-                as: "owner",
+                as: "ownerDetails",
                 pipeline: [
                     {
                         $project: {
                             username: 1,
-                            avatar: 1,
+                            "avatar.url": 1
                         }
                     }
                 ]
             }
         },
         {
-            $lookup: {
-                from: "likes",
-                localField: "_id",
-                foreignField: "video",
-                as: "likes"
-            }
-        },
-        {
-            $addFields: {
-                likesCnt: { $size: "$likes" }
-            }
-        },
-        {
-            $project: {
-                _id: 1,
-                likesCnt: 1,
-                owner: 1,
-                "videoFile.url": 1,
-                "thumbnail.url": 1,
-                createdAt: 1,
-                title: 1,
-                description: 1,
-                duration: 1,
-                views: 1,
-                isPublished: 1,
-            }
-        },
-        { $sort: { [sortBy]: sortType === 'asc' ? 1 : -1 } },
-        { $skip: skip },
-        { $limit: limitNumber }
-    ])
-
-
-    if (videos.length === 0) {
-        throw new ApiError(400, "No videos found")
-    }
-
-    res.status(200).json(
-        new ApiResponse(200, videos, "Videos fetched successfully")
+            $unwind: "$ownerDetails"
+        }
     )
 
-})
+    const videoAggregate = Video.aggregate(pipeline);
+
+    const options = {
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10)
+    };
+
+    const video = await Video.aggregatePaginate(videoAggregate, options);
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, video, "Videos fetched successfully"));
+});
 
 const uploadVideo = asyncHandler(async (req, res) => {
     const { title, description } = req.body
@@ -150,7 +150,7 @@ const getVideoById = asyncHandler(async (req, res) => {
     //TODO: get video by id
     const { videoId } = req.params
 
-    if (!videoId) {
+    if (!isValidObjectId(videoId)) {
         throw new ApiError(400, "Video id is required")
     }
 
@@ -208,14 +208,6 @@ const getVideoById = asyncHandler(async (req, res) => {
             }
         },
         {
-            $lookup: {
-                from: "comments",
-                localField: "_id",
-                foreignField: "video",
-                as: "comments"
-            }
-        },
-        {
             $addFields: {
                 likesCount: { $size: "$likes" },
                 isLiked: {
@@ -224,6 +216,9 @@ const getVideoById = asyncHandler(async (req, res) => {
                         then: true,
                         else: false
                     }
+                },
+                owner: {
+                    $first: "$owner"
                 }
             }
         },
@@ -244,10 +239,8 @@ const getVideoById = asyncHandler(async (req, res) => {
         }
     ]);
 
-
-
     if (!video) {
-        throw new ApiError(400, "Video does not exist")
+        throw new ApiError(501, "Failed to fetch the video")
     }
 
     await Video.findByIdAndUpdate(
@@ -267,7 +260,7 @@ const getVideoById = asyncHandler(async (req, res) => {
             }
         }
     )
-    console.log(video)
+    // console.log(video)
     res.status(200).json(
         new ApiResponse(200, video[0], "Video fetched successfully")
     )

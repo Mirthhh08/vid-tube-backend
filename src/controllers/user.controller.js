@@ -1,10 +1,17 @@
 import asyncHandler from '../utils/asyncHandler.js'
 import { ApiError } from '../utils/ApiError.js'
 import { User } from '../models/user.model.js'
+import { Comment } from "../models/comment.model.js"
+import { Like } from "../models/like.model.js"
+import { Subscription } from "../models/subscription.model.js"
+import { Tweet } from "../models/tweet.model.js"
+import { Video } from "../models/video.model.js"
 import { deleteFile, uploadOnCloudinary } from '../utils/cloudinary.js'
 import { ApiResponse } from '../utils/ApiResponse.js'
 import jwt from "jsonwebtoken"
 import mongoose from 'mongoose'
+import zod from "zod"
+import { Playlist } from '../models/playlist.model.js'
 
 const generateAccessAndRefreshTokens = async (userId) => {
     try {
@@ -38,9 +45,7 @@ const registerUser = asyncHandler(async (req, res) => {
     // check for user creation
     // return res
 
-
     const { fullName, username, password, email } = req.body
-
 
     if ([fullName, username, password, email].some((field) => field?.trim() === "")) {
         throw new ApiError(400, "All fields are required")
@@ -97,7 +102,7 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new ApiError(500, "Something went wrong while registering user")
     }
 
-    console.log(createdUser)
+    // console.log(createdUser)
     return res.status(201).json(
         new ApiResponse(201, createdUser, "User registered successfully")
     )
@@ -140,6 +145,7 @@ const loginUser = asyncHandler(async (req, res) => {
     const options = {
         httpOnly: true,
         secure: true,
+        sameSite: "None"
     }
 
     return res.status(200).cookie("accessToken", accessToken, options).cookie("refreshToken", refreshToken, options).json(
@@ -171,6 +177,7 @@ const logoutUser = asyncHandler(async (req, res) => {
     const options = {
         httpOnly: true,
         secure: true,
+        sameSite: "None"
     }
 
     return res.status(200).clearCookie("accessToken", options).clearCookie("refreshToken", options).json(
@@ -211,7 +218,8 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
         const options = {
             httpOnly: true,
-            secure: true
+            secure: true,
+            sameSite: "None"
         }
 
         const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id)
@@ -480,6 +488,28 @@ const getWatchHistory = asyncHandler(async (req, res) => {
         new ApiResponse(200, user[0].watchHistory, "Watch history fetched successfully")
     )
 })
+
+
+// const deleteUserProfile = asyncHandler(async (req, res) => {
+//     const { userId } = req.body
+
+//     if (!isValidObjectId(userId)) {
+//         throw new ApiError(401, "Not a valid objectId")
+//     }
+
+//     if (req.user._id.toString() !== userId.toString()) {
+//         throw new ApiError(401, "Not authorized to delete the profile as you are not the owner")
+//     }
+
+//     await Like.deleteMany({ likedBy: req.user?._id })
+//     await Comment.deleteMany({user:req.user?._id})
+//     await Tweet.deleteMany({owner:req.user?._id})
+//     await Playlist.deleteMany({ owner: req.user?._id })
+//     await Subscription.deleteMany({subscriber:req.user?._id})
+//     await Subscription.deleteMany({channel:req.user?._id})
+//     await Tweet.deleteMany({owner:req.user?._id})
+
+// })
 
 export {
     registerUser,

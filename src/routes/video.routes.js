@@ -5,12 +5,12 @@ import { deleteVideo, getAllVideos, getVideoById, togglePublishStatus, updateVid
 
 const router = Router();
 
-router.use(verifyJWT)
+// router.use()
 
 router.route("/").get(getAllVideos)
 
 router.route("/upload").post(
-
+    verifyJWT,
     upload.fields(
         [
             {
@@ -26,12 +26,12 @@ router.route("/upload").post(
     uploadVideo
 )
 
-router.route("/watch/:videoId").get(getVideoById)
+router.route("/watch/:videoId").get(verifyJWT, getVideoById)
 
-router.route("/update/:videoId").patch(upload.single("thumbnail"), updateVideo)
+router.route("/update/:videoId").patch(verifyJWT, upload.single("thumbnail"), updateVideo)
 
-router.route("/delete/:videoId").delete(deleteVideo)
+router.route("/delete/:videoId").delete(verifyJWT, deleteVideo)
 
-router.route("/toggle/publish/:videoId").patch(togglePublishStatus)
+router.route("/toggle/publish/:videoId").patch(verifyJWT, togglePublishStatus)
 
 export default router

@@ -143,14 +143,14 @@ const getLikedVideos = asyncHandler(async (req, res) => {
                 from: "videos",
                 localField: "video",
                 foreignField: "_id",
-                as: "videos"
+                as: "likedVideo"
             }
         },
-        { $unwind: "$videos" },
+        { $unwind: "$likedVideo" },
         {
             $lookup: {
                 from: "users",
-                localField: "videos.owner",
+                localField: "likedVideo.owner",
                 foreignField: "_id",
                 as: "owner"
             }
@@ -158,21 +158,21 @@ const getLikedVideos = asyncHandler(async (req, res) => {
         { $unwind: "$owner" },
         {
             $project: {
-                _id: 1,
-                "videos.videoFile.url": 1,
-                "videos.thumbnail.url": 1,
+                "likedVideo._id": 1,
+                "likedVideo.videoFile.url": 1,
+                "likedVideo.thumbnail.url": 1,
                 "owner.username": 1,
                 "owner._id": 1,
                 "owner.avatar.url": 1,
-                "videos.views": 1,
-                "videos.duration": 1,
-                "videos.title": 1,
-                "videos.createdAt": 1
+                "likedVideo.views": 1,
+                "likedVideo.duration": 1,
+                "likedVideo.title": 1,
+                "likedVideo.createdAt": 1
             }
         }
     ]);
 
-    if (!likedVideos || likedVideos.length === 0) {
+    if (!likedVideos) {
         throw new ApiError(501, "No videos found")
     }
 
