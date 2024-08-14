@@ -370,7 +370,7 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
 
 const getUserChannelProfile = asyncHandler(async (req, res) => {
     const { username } = req.params
-
+    // console.log(username)
     if (!username?.trim()) {
         throw new ApiError(400, "username is missing")
     }
@@ -430,10 +430,10 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     ])
 
 
-    if (!channel?.length) {
+    if (channel.length === 0) {
         throw new ApiError(400, "Channel does not exist")
     }
-
+    
     res.status(200).json(
         new ApiResponse(200, channel[0], "User channel fetched successfully")
     )
@@ -450,24 +450,23 @@ const getWatchHistory = asyncHandler(async (req, res) => {
             $lookup: {
                 from: "videos",
                 localField: "watchHistory",
-                foriegnField: "_id",
+                foreignField: "_id",
                 as: "watchHistory",
                 pipeline: [
                     {
                         $lookup: {
                             from: "users",
                             localField: "owner",
-                            foriegnField: "_id",
+                            foreignField: "_id",
                             as: "owner",
-                            pipline: [
+                            pipeline: [
                                 {
-                                    $project: [
-                                        {
+                                    $project: {
                                             fullName: 1,
                                             username: 1,
                                             avatar: 1
                                         }
-                                    ]
+                                    
                                 }
                             ]
                         }

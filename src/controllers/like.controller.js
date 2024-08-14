@@ -17,15 +17,15 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
         likedBy: req.user?._id
     })
 
-    let isLiked;
+    let isLiked
     if (like) {
-        const deleteLike = await Like.findByIdAndDelete(like._id);
+        const deleteLike = await Like.findByIdAndDelete(like._id)
 
         if (!deleteLike) {
-            throw new ApiError(501, "Something went wrong while disliking");
+            throw new ApiError(501, "Something went wrong while disliking")
         }
 
-        isLiked = false;
+        isLiked = false
     }
     else {
         const addLike = await Like.create({
@@ -34,10 +34,10 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
         });
 
         if (!addLike) {
-            throw new ApiError(501, "Something went wrong while liking");
+            throw new ApiError(501, "Something went wrong while liking")
         }
-
-        isLiked = true;
+        
+        isLiked = true
     }
 
     res.status(200).json(

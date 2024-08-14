@@ -54,7 +54,7 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
         throw new ApiError(401, "Not a valid channel id")
     }
     const subscribers = await Subscription.find(
-        { channel: new mongoose.Type.ObjectId(channelId) }
+        { channel: new mongoose.Types.ObjectId(channelId) }
     )
 
     if (!subscribers || subscribers.length === 1) {
@@ -63,7 +63,6 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
     res.status(200).json(
         new ApiResponse(200, { subscriberCnt: subscribers.length }, "Subscribers fetched successfully")
     )
-
 })
 
 // controller to return channel list to which user has subscribed
@@ -90,19 +89,19 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
                     $project: {
                         _id: 1,
                         "avatar.url": 1,
-                        username: 1
+                        username: 1,
                     }
                 }]
             }
         },
     ])
 
-    if (!subscribedTo || subscribedTo.length === 0) {
+    if (!subscribedTo) {
         throw new ApiError(501, "No channels found")
     }
 
     res.status(200).json(
-        new ApiResponse(200, subscribedTo[0], "Subscribed channel fetched successfully")
+        new ApiResponse(200, subscribedTo, "Subscribed channel fetched successfully")
     )
 })
 

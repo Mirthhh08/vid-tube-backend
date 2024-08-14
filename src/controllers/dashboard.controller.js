@@ -69,7 +69,7 @@ const getChannelStats = asyncHandler(async (req, res) => {
     }
 
     const stats = {
-        subscriberCount: subscriberStats[0]?.subscriberCcnt || 0,
+        totalSubscribers: subscriberStats[0]?.subscriberCcnt || 0,
         totalLikes: videoStats[0]?.totalLikesCnt || 0,
         totalVideos: videoStats[0]?.totalVideos || 0,
         totalViews: videoStats[0]?.totalViewsCnt || 0,
@@ -104,7 +104,13 @@ const getChannelVideos = asyncHandler(async (req, res) => {
         },
         {
             $addFields: {
+                createdAt: { $dateToParts: { date: "$createdAt" } },
                 likesCnt: { $size: "$likes" }
+            }
+        },
+        {
+            $sort: {
+                createdAt: 1
             }
         },
         {
@@ -112,6 +118,7 @@ const getChannelVideos = asyncHandler(async (req, res) => {
                 _id: 1,
                 "videoFile.url": 1,
                 "thumbnail.url": 1,
+                isPublished: 1,
                 likesCnt: 1,
                 createdAt: 1,
                 title: 1,
@@ -123,7 +130,7 @@ const getChannelVideos = asyncHandler(async (req, res) => {
     ])
 
 
-    if (!videos || videos.length === 0) {
+    if (!videos) {
         throw new ApiError(501, "No videos found")
     }
 

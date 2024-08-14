@@ -59,10 +59,12 @@ const getUserTweets = asyncHandler(async (req, res) => {
         },
         {
             $project: {
+                
                 content: 1,
                 _id: 1,
                 owner: 1,
-                likesCnt: 1
+                likesCnt: 1,
+                createdAt:1
             }
         }
     ])
