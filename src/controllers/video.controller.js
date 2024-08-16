@@ -189,7 +189,7 @@ const getVideoById = asyncHandler(async (req, res) => {
                             subscriberCnt: { $size: "$subscribers" },
                             isSubscribed: {
                                 $cond: {
-                                    if: { $in: [req.user?._id, "$subscribers"] },
+                                    if: { $in: [req.user?._id, "$subscribers.subscriber"] },
                                     then: true,
                                     else: false
                                 }
@@ -201,7 +201,7 @@ const getVideoById = asyncHandler(async (req, res) => {
                             username: 1,
                             subscriberCnt: 1,
                             isSubscribed: 1,
-                            avatar: 1
+                            "avatar.url": 1
                         }
                     }
                 ]
@@ -212,7 +212,7 @@ const getVideoById = asyncHandler(async (req, res) => {
                 likesCount: { $size: "$likes" },
                 isLiked: {
                     $cond: {
-                        if: { $in: [req.user?._id, "$likes"] },
+                        if: { $in: [req.user?._id, "$likes.likedBy"] },
                         then: true,
                         else: false
                     }

@@ -10,7 +10,6 @@ import { deleteFile, uploadOnCloudinary } from '../utils/cloudinary.js'
 import { ApiResponse } from '../utils/ApiResponse.js'
 import jwt from "jsonwebtoken"
 import mongoose from 'mongoose'
-import zod from "zod"
 import { Playlist } from '../models/playlist.model.js'
 
 const generateAccessAndRefreshTokens = async (userId) => {
@@ -462,11 +461,11 @@ const getWatchHistory = asyncHandler(async (req, res) => {
                             pipeline: [
                                 {
                                     $project: {
-                                            fullName: 1,
-                                            username: 1,
-                                            avatar: 1
-                                        }
-                                    
+                                        fullName: 1,
+                                        username: 1,
+                                        avatar: 1
+                                    }
+
                                 }
                             ]
                         }

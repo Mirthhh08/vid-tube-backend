@@ -1,23 +1,19 @@
 import mongoose, { isValidObjectId } from "mongoose"
 import { Comment } from "../models/comment.model.js"
+import { Video } from "../models/video.model.js"
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import asyncHandler from "../utils/asyncHandler.js"
 
 const getVideoComments = asyncHandler(async (req, res) => {
-    //TODO: get all comments for a video
-    const { videoId } = req.params
-    const { page = 1, limit = 10 } = req.query
+    const { videoId } = req.params;
+    const { page = 1, limit = 10 } = req.query;
 
     if (!isValidObjectId(videoId)) {
         throw new ApiError(401, "Not a valid object id")
     }
 
-    const pageNumber = parseInt(page, 10)
-    const limitNumber = parseInt(limit, 10)
-    const skip = (pageNumber - 1) * limitNumber
-
-    const comments = await Comment.aggregate([
+    const commentsAggregate = Comment.aggregate([
         {
             $match: {
                 video: new mongoose.Types.ObjectId(videoId)
@@ -26,18 +22,9 @@ const getVideoComments = asyncHandler(async (req, res) => {
         {
             $lookup: {
                 from: "users",
-                localField: "user",
+                localField: "owner",
                 foreignField: "_id",
-                as: "owner",
-                pipeline: [
-                    {
-                        $project: {
-                            _id: 1,
-                            username: 1,
-                            avatar: 1,
-                        }
-                    }
-                ]
+                as: "owner"
             }
         },
         {
@@ -50,29 +37,54 @@ const getVideoComments = asyncHandler(async (req, res) => {
         },
         {
             $addFields: {
-                likesCnt: { $size: "$likes" }
+                likesCount: {
+                    $size: "$likes"
+                },
+                owner: {
+                    $first: "$owner"
+                },
+                isLiked: {
+                    $cond: {
+                        if: { $in: [req.user?._id, "$likes.likedBy"] },
+                        then: true,
+                        else: false
+                    }
+                }
+            }
+        },
+        {
+            $sort: {
+                createdAt: -1
             }
         },
         {
             $project: {
-                _id: 1,
                 content: 1,
                 createdAt: 1,
-                owner: 1,
-                likesCnt: 1
+                likesCount: 1,
+                owner: {
+                    username: 1,
+                    fullName: 1,
+                    "avatar.url": 1
+                },
+                isLiked: 1
             }
-        },
-        { $skip: skip },
-        { $limit: limitNumber }
-    ])
+        }
+    ]);
 
-    if (!comments || comments.length === 0) {
-        throw new ApiError(501, "No comments found")
-    }
+    const options = {
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10)
+    };
 
-    res.status(200).json(
-        new ApiResponse(200, comments, "Comments fetched successfully")
-    )
+    const comments = await Comment.aggregatePaginate(
+        commentsAggregate,
+        options
+    );
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, comments, "Comments fetched successfully"));
 })
 
 const addComment = asyncHandler(async (req, res) => {

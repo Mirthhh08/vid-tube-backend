@@ -32,7 +32,7 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
             video: new mongoose.Types.ObjectId(videoId),
             likedBy: req.user?._id
         });
-
+        
         if (!addLike) {
             throw new ApiError(501, "Something went wrong while liking")
         }
