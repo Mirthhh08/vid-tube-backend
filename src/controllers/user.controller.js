@@ -29,7 +29,7 @@ const generateAccessAndRefreshTokens = async (userId) => {
         return { accessToken, refreshToken }
 
     } catch (err) {
-        throw new ApiError(400, "Something went wrong while generating refresh and access token")
+        throw new ApiError(600, "Something went wrong while generating refresh and access token")
     }
 }
 
@@ -47,7 +47,7 @@ const registerUser = asyncHandler(async (req, res) => {
     const { fullName, username, password, email } = req.body
 
     if ([fullName, username, password, email].some((field) => field?.trim() === "")) {
-        throw new ApiError(400, "All fields are required")
+        throw new ApiError(600, "All fields are required")
     }
 
     const existedUser = await User.findOne({

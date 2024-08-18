@@ -28,8 +28,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
             }
         });
     }
-
-    if (userId) {
+    else if (userId) {
         if (!isValidObjectId(userId)) {
             throw new ApiError(400, "Invalid userId");
         }
@@ -77,7 +76,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
         }
     )
 
-    const videoAggregate = Video.aggregate(pipeline);
+    const videoAggregate =  Video.aggregate(pipeline);
 
     const options = {
         page: parseInt(page, 10),
@@ -86,10 +85,11 @@ const getAllVideos = asyncHandler(async (req, res) => {
 
     const video = await Video.aggregatePaginate(videoAggregate, options);
 
+    console.log(video)
     return res
         .status(200)
         .json(new ApiResponse(200, video, "Videos fetched successfully"));
-});
+})
 
 const uploadVideo = asyncHandler(async (req, res) => {
     const { title, description } = req.body
